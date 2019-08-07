@@ -1,4 +1,4 @@
-package com.thai.thishop.weight.layoutmanager
+package com.biansemao.stackcardlayoutmanager
 
 import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
