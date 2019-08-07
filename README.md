@@ -1,0 +1,2 @@
+# StackCardLayoutManager
+Android 自定义RecyclerView.LayoutManager，卡片式层叠效果
