@@ -21,6 +21,9 @@ Android 自定义RecyclerView.LayoutManager，卡片式层叠效果
 | isAutoCycle | 若能无限循环，是否自动开始循环 |
 | autoCycleTime | 自动循环时间间隔，毫秒 |
 | direction | 摆放方向：LEFT,TOP,RIGHT,BOTTOM |
+# Method
+## 1.setOnPositionChangeListener
+设置位置改变监听
 
 注：StackCardLayoutManager未对RecyclerView及其item的padding及margin做考虑
 

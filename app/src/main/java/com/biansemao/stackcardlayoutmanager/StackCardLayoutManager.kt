@@ -1,4 +1,4 @@
-package com.biansemao.stackcardlayoutmanager
+package com.thai.thishop.weight.layoutmanager
 
 import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
@@ -41,6 +41,8 @@ class StackCardLayoutManager : RecyclerView.LayoutManager {
 
     private var sSetScrollState: Method? = null
     private var mPendingScrollPosition = RecyclerView.NO_POSITION
+
+    private var mOnPositionChangeListener: OnPositionChangeListener? = null
 
     private val mTouchListener = View.OnTouchListener { v, event ->
         mVelocityTracker.addMovement(event)
@@ -176,7 +178,6 @@ class StackCardLayoutManager : RecyclerView.LayoutManager {
             StackDirection.LEFT, StackDirection.RIGHT -> {
                 val dur = computeHorizontalSettleDuration(Math.abs(mItemWidth), 0f)
                 brewAndStartAnimator(dur, mItemWidth)
-
             }
             StackDirection.TOP, StackDirection.BOTTOM -> {
                 val dur = computeVerticalSettleDuration(Math.abs(mItemHeight), 0f)
@@ -384,10 +385,10 @@ class StackCardLayoutManager : RecyclerView.LayoutManager {
             return dy
         }
         when {
-            mTotalOffset > itemCount * mItemHeight -> {
+            mTotalOffset >= itemCount * mItemHeight -> {
                 mTotalOffset -= itemCount * mItemHeight
             }
-            mTotalOffset < -itemCount * mItemHeight -> {
+            mTotalOffset <= -itemCount * mItemHeight -> {
                 mTotalOffset += itemCount * mItemHeight
             }
         }
@@ -519,10 +520,10 @@ class StackCardLayoutManager : RecyclerView.LayoutManager {
             return dx
         }
         when {
-            mTotalOffset > itemCount * mItemWidth -> {
+            mTotalOffset >= itemCount * mItemWidth -> {
                 mTotalOffset -= itemCount * mItemWidth
             }
-            mTotalOffset < -itemCount * mItemWidth -> {
+            mTotalOffset <= -itemCount * mItemWidth -> {
                 mTotalOffset += itemCount * mItemWidth
             }
         }
@@ -604,6 +605,11 @@ class StackCardLayoutManager : RecyclerView.LayoutManager {
         view?.onFlingListener = mOnFlingListener
     }
 
+    override fun onDetachedFromWindow(view: RecyclerView?, recycler: RecyclerView.Recycler?) {
+        super.onDetachedFromWindow(view, recycler)
+        stopAutoCycle()
+    }
+
     private fun brewAndStartAnimator(dur: Int, finalXorY: Int) {
         animator = ObjectAnimator.ofInt(this@StackCardLayoutManager, "animateValue", 0, finalXorY)
         animator?.duration = dur.toLong()
@@ -611,12 +617,31 @@ class StackCardLayoutManager : RecyclerView.LayoutManager {
         animator?.addListener(object : AnimatorListenerAdapter() {
             override fun onAnimationEnd(animation: Animator) {
                 lastAnimateValue = 0
+                positionChange()
             }
 
             override fun onAnimationCancel(animation: Animator) {
                 lastAnimateValue = 0
+                positionChange()
             }
         })
+    }
+
+    private fun positionChange() {
+        mOnPositionChangeListener?.let {
+            when (stackConfig.direction) {
+                StackDirection.LEFT, StackDirection.RIGHT -> {
+                    if (mItemWidth > 0) {
+                        it.onPositionChange(Math.abs(mTotalOffset) / mItemWidth)
+                    }
+                }
+                StackDirection.TOP, StackDirection.BOTTOM -> {
+                    if (mItemHeight > 0) {
+                        it.onPositionChange(Math.abs(mTotalOffset) / mItemHeight)
+                    }
+                }
+            }
+        }
     }
 
     @SuppressLint("AnimatorKeep")
@@ -996,6 +1021,24 @@ class StackCardLayoutManager : RecyclerView.LayoutManager {
         if (stackConfig.isCycle && itemCount > 1 && stackConfig.isAutoCycle) {
             mRecyclerView?.removeCallbacks(mAutoCycleRunnable)
         }
+    }
+
+    /**
+     * 设置位置改变监听
+     */
+    fun setOnPositionChangeListener(action: (position: Int) -> Unit) {
+        this.mOnPositionChangeListener = object : OnPositionChangeListener {
+            override fun onPositionChange(position: Int) {
+                action(position)
+            }
+        }
+    }
+
+    /**
+     * 位置改变监听
+     */
+    interface OnPositionChangeListener {
+        fun onPositionChange(position: Int)
     }
 
     class StackConfig {
