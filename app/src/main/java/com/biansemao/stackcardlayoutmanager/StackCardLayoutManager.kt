@@ -603,6 +603,8 @@ class StackCardLayoutManager : RecyclerView.LayoutManager {
         view?.setOnTouchListener(mTouchListener)
 
         view?.onFlingListener = mOnFlingListener
+
+        initialFlag = false
     }
 
     override fun onDetachedFromWindow(view: RecyclerView?, recycler: RecyclerView.Recycler?) {
