@@ -46,71 +46,82 @@ class StackCardLayoutManager : RecyclerView.LayoutManager {
 
     private val mTouchListener = View.OnTouchListener { v, event ->
         mVelocityTracker.addMovement(event)
-        if (event.action == MotionEvent.ACTION_DOWN) {
-            animator?.let {
-                if (it.isRunning) {
-                    it.cancel()
+        when (event.action) {
+            MotionEvent.ACTION_DOWN -> {
+                animator?.let {
+                    if (it.isRunning) {
+                        it.cancel()
+                    }
                 }
-            }
-            pointerId = event.getPointerId(0)
+                pointerId = event.getPointerId(0)
 
-            stopAutoCycle()
-        }
-        if (event.action == MotionEvent.ACTION_UP) {
-            if (v.isPressed) {
-                v.performClick()
+                stopAutoCycle()
             }
-            mVelocityTracker.computeCurrentVelocity(1000, 14000f)
-            when (stackConfig.direction) {
-                StackDirection.LEFT, StackDirection.RIGHT -> {
-                    if (mItemHeight > 0) {
-                        val o = mTotalOffset % mItemWidth
-                        val scrollX: Int
-                        if (Math.abs(mVelocityTracker.getXVelocity(pointerId)) < mMinVelocity && o != 0) {
-                            scrollX = if (mTotalOffset >= 0) {
-                                if (o >= mItemWidth / 2) {
-                                    mItemWidth - o
+            MotionEvent.ACTION_MOVE -> {
+                animator?.let {
+                    if (it.isRunning) {
+                        it.cancel()
+                    }
+                }
+
+                stopAutoCycle()
+            }
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL, MotionEvent.ACTION_OUTSIDE -> {
+                if (v.isPressed) {
+                    v.performClick()
+                }
+                mVelocityTracker.computeCurrentVelocity(1000, 14000f)
+                when (stackConfig.direction) {
+                    StackDirection.LEFT, StackDirection.RIGHT -> {
+                        if (mItemHeight > 0) {
+                            val o = mTotalOffset % mItemWidth
+                            val scrollX: Int
+                            if (Math.abs(mVelocityTracker.getXVelocity(pointerId)) < mMinVelocity && o != 0) {
+                                scrollX = if (mTotalOffset >= 0) {
+                                    if (o >= mItemWidth / 2) {
+                                        mItemWidth - o
+                                    } else {
+                                        -o
+                                    }
                                 } else {
-                                    -o
+                                    if (o <= -mItemWidth / 2) {
+                                        -mItemWidth - o
+                                    } else {
+                                        -o
+                                    }
                                 }
-                            } else {
-                                if (o <= -mItemWidth / 2) {
-                                    -mItemWidth - o
-                                } else {
-                                    -o
-                                }
+                                val dur = (Math.abs((scrollX + 0f) / mItemWidth) * duration).toInt()
+                                brewAndStartAnimator(dur, scrollX)
                             }
-                            val dur = (Math.abs((scrollX + 0f) / mItemWidth) * duration).toInt()
-                            brewAndStartAnimator(dur, scrollX)
+                        }
+                    }
+                    StackDirection.TOP, StackDirection.BOTTOM -> {
+                        if (mItemHeight > 0) {
+                            val o = mTotalOffset % mItemHeight
+                            val scrollY: Int
+                            if (Math.abs(mVelocityTracker.getYVelocity(pointerId)) < mMinVelocity && o != 0) {
+                                scrollY = if (mTotalOffset >= 0) {
+                                    if (o >= mItemHeight / 2) {
+                                        mItemHeight - o
+                                    } else {
+                                        -o
+                                    }
+                                } else {
+                                    if (o <= -mItemHeight / 2) {
+                                        -mItemHeight - o
+                                    } else {
+                                        -o
+                                    }
+                                }
+                                val dur = (Math.abs((scrollY + 0f) / mItemHeight) * duration).toInt()
+                                brewAndStartAnimator(dur, scrollY)
+                            }
                         }
                     }
                 }
-                StackDirection.TOP, StackDirection.BOTTOM -> {
-                    if (mItemHeight > 0) {
-                        val o = mTotalOffset % mItemHeight
-                        val scrollY: Int
-                        if (Math.abs(mVelocityTracker.getYVelocity(pointerId)) < mMinVelocity && o != 0) {
-                            scrollY = if (mTotalOffset >= 0) {
-                                if (o >= mItemHeight / 2) {
-                                    mItemHeight - o
-                                } else {
-                                    -o
-                                }
-                            } else {
-                                if (o <= -mItemHeight / 2) {
-                                    -mItemHeight - o
-                                } else {
-                                    -o
-                                }
-                            }
-                            val dur = (Math.abs((scrollY + 0f) / mItemHeight) * duration).toInt()
-                            brewAndStartAnimator(dur, scrollY)
-                        }
-                    }
-                }
-            }
 
-            startAutoCycle()
+                startAutoCycle()
+            }
         }
         false
     }
@@ -596,6 +607,7 @@ class StackCardLayoutManager : RecyclerView.LayoutManager {
         }
     }
 
+    @SuppressLint("ClickableViewAccessibility")
     override fun onAttachedToWindow(view: RecyclerView?) {
         super.onAttachedToWindow(view)
         mRecyclerView = view
@@ -1079,3 +1091,4 @@ class StackCardLayoutManager : RecyclerView.LayoutManager {
     }
 
 }
+
