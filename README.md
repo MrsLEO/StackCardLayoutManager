@@ -26,7 +26,8 @@ Android 自定义RecyclerView.LayoutManager，卡片式层叠效果
 ## 1.setOnPositionChangeListener
 设置位置改变监听
 
-注：
+## 注：
 1.若出现列表嵌套列表的情况，建议将isAdjustSize设置为true
+
 2.StackCardLayoutManager未对RecyclerView及其item的padding及margin做过多考虑，使用时请自定注意
 
