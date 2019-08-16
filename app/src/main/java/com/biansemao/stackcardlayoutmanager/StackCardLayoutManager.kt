@@ -13,6 +13,7 @@ import android.view.View
 import android.view.ViewConfiguration
 import java.lang.reflect.Method
 
+
 /**
  * 自定义RecyclerView.LayoutManager，卡片式层叠效果
  */
@@ -34,6 +35,7 @@ class StackCardLayoutManager : RecyclerView.LayoutManager {
     private var mRecycler: RecyclerView.Recycler? = null
 
     private var initialFlag: Boolean = false
+    private var stopAutoCycleFlag: Boolean = false
 
     private var mMinVelocity: Int = 0
     private val mVelocityTracker = VelocityTracker.obtain()
@@ -129,6 +131,7 @@ class StackCardLayoutManager : RecyclerView.LayoutManager {
     private val mOnFlingListener = object : RecyclerView.OnFlingListener() {
         override fun onFling(velocityX: Int, velocityY: Int): Boolean {
             stopAutoCycle()
+            stopAutoCycleFlag = true
 
             val vel = absMax(velocityX, velocityY)
             when (stackConfig.direction) {
@@ -179,24 +182,27 @@ class StackCardLayoutManager : RecyclerView.LayoutManager {
             }
             setScrollStateIdle()
 
+            stopAutoCycleFlag = false
             startAutoCycle()
             return true
         }
     }
 
     private val mAutoCycleRunnable = Runnable {
-        when (stackConfig.direction) {
-            StackDirection.LEFT, StackDirection.RIGHT -> {
-                val dur = computeHorizontalSettleDuration(Math.abs(mItemWidth), 0f)
-                brewAndStartAnimator(dur, mItemWidth)
+        if (!stopAutoCycleFlag) {
+            when (stackConfig.direction) {
+                StackDirection.LEFT, StackDirection.RIGHT -> {
+                    val dur = computeHorizontalSettleDuration(Math.abs(mItemWidth), 0f)
+                    brewAndStartAnimator(dur, mItemWidth)
+                }
+                StackDirection.TOP, StackDirection.BOTTOM -> {
+                    val dur = computeVerticalSettleDuration(Math.abs(mItemHeight), 0f)
+                    brewAndStartAnimator(dur, mItemHeight)
+                }
             }
-            StackDirection.TOP, StackDirection.BOTTOM -> {
-                val dur = computeVerticalSettleDuration(Math.abs(mItemHeight), 0f)
-                brewAndStartAnimator(dur, mItemHeight)
-            }
-        }
 
-        startAutoCycle()
+            startAutoCycle()
+        }
     }
 
     private var stackConfig: StackConfig = StackConfig()
@@ -225,9 +231,18 @@ class StackCardLayoutManager : RecyclerView.LayoutManager {
 
         /* 获取第一个item，所有item具有相同尺寸 */
         val anchorView = recycler.getViewForPosition(0)
-        measureChildWithMargins(anchorView, 0, 0)
-        mItemWidth = anchorView.measuredWidth
-        mItemHeight = anchorView.measuredHeight
+        if (stackConfig.isAdjustSize) {
+            if (mItemWidth <= 0 || mItemHeight <= 0) {
+                measureChildWithMargins(anchorView, 0, 0)
+                mItemWidth = anchorView.measuredWidth
+                mItemHeight = anchorView.measuredHeight
+            }
+        } else {
+            measureChildWithMargins(anchorView, 0, 0)
+            mItemWidth = anchorView.measuredWidth
+            mItemHeight = anchorView.measuredHeight
+        }
+
 
         initialOffset = resolveInitialOffset()
         mMinVelocity = ViewConfiguration.get(anchorView.context).scaledMinimumFlingVelocity
@@ -278,6 +293,8 @@ class StackCardLayoutManager : RecyclerView.LayoutManager {
 
     override fun onAdapterChanged(oldAdapter: RecyclerView.Adapter<*>?, newAdapter: RecyclerView.Adapter<*>?) {
         initialFlag = false
+        mItemWidth = 0
+        mItemHeight = 0
         mTotalOffset = 0
     }
 
@@ -370,8 +387,9 @@ class StackCardLayoutManager : RecyclerView.LayoutManager {
         }
 
         val firstScale = getVerticalFirstScale()
+        val leftOffset = getVerticalItemOffset(firstScale)
         for (i in start downTo end) {
-            fillVerticalBaseItemView(recycler.getViewForPosition(i), firstScale, curPosition, i, isTopFlag)
+            fillVerticalBaseItemView(recycler.getViewForPosition(i), firstScale, leftOffset, curPosition, i, isTopFlag)
         }
 
         return dy
@@ -426,8 +444,9 @@ class StackCardLayoutManager : RecyclerView.LayoutManager {
         }
 
         val firstScale = getVerticalFirstScale()
+        val leftOffset = getVerticalItemOffset(firstScale)
         for (i in tempList.size - 1 downTo 0) {
-            fillVerticalBaseItemView(tempList[i], firstScale, 1, i, isTopFlag)
+            fillVerticalBaseItemView(tempList[i], firstScale, leftOffset, 1, i, isTopFlag)
         }
 
         return dy
@@ -436,9 +455,18 @@ class StackCardLayoutManager : RecyclerView.LayoutManager {
     /**
      * 填充垂直方向的控件
      */
-    private fun fillVerticalBaseItemView(view: View, firstScale: Float, position: Int, index: Int, isTopFlag: Boolean) {
+    private fun fillVerticalBaseItemView(view: View, firstScale: Float, leftOffset: Float, position: Int, index: Int, isTopFlag: Boolean) {
+        if (stackConfig.isAdjustSize) {
+            /* 重设宽高，以防止在RecyclerView嵌套RecyclerView在中出现View显示不全的异常 */
+            val layoutParams = view.layoutParams
+            layoutParams.width = mItemWidth
+            layoutParams.height = mItemHeight
+            view.layoutParams = layoutParams
+        }
+
         // 通知测量view的margin值
         measureChildWithMargins(view, 0, 0)
+
         val scale = if (mTotalOffset >= 0) {
             calculateVerticalScale(firstScale, position, index)
         } else {
@@ -461,6 +489,7 @@ class StackCardLayoutManager : RecyclerView.LayoutManager {
             } else {
                 view.translationY = offset
             }
+            view.translationX = -leftOffset
         }
     }
 
@@ -505,8 +534,9 @@ class StackCardLayoutManager : RecyclerView.LayoutManager {
         }
 
         val firstScale = getHorizontalFirstScale()
+        val topOffset = getHorizontalItemOffset(firstScale)
         for (i in start downTo end) {
-            fillHorizontalBaseItemView(recycler.getViewForPosition(i), firstScale, curPosition, i, isLeftFlag)
+            fillHorizontalBaseItemView(recycler.getViewForPosition(i), firstScale, topOffset, curPosition, i, isLeftFlag)
         }
 
         return dx
@@ -561,8 +591,9 @@ class StackCardLayoutManager : RecyclerView.LayoutManager {
         }
 
         val firstScale = getHorizontalFirstScale()
+        val topOffset = getHorizontalItemOffset(firstScale)
         for (i in tempList.size - 1 downTo 0) {
-            fillHorizontalBaseItemView(tempList[i], firstScale, 1, i, isLeftFlag)
+            fillHorizontalBaseItemView(tempList[i], firstScale, topOffset, 1, i, isLeftFlag)
         }
 
         return dx
@@ -571,9 +602,18 @@ class StackCardLayoutManager : RecyclerView.LayoutManager {
     /**
      * 填充水平方向的控件
      */
-    private fun fillHorizontalBaseItemView(view: View, firstScale: Float, position: Int, index: Int, isLeftFlag: Boolean) {
+    private fun fillHorizontalBaseItemView(view: View, firstScale: Float, topOffset: Float, position: Int, index: Int, isLeftFlag: Boolean) {
+        if (stackConfig.isAdjustSize) {
+            /* 重设宽高，以防止在RecyclerView嵌套RecyclerView在中出现View显示不全的异常 */
+            val layoutParams = view.layoutParams
+            layoutParams.width = mItemWidth
+            layoutParams.height = mItemHeight
+            view.layoutParams = layoutParams
+        }
+
         // 通知测量view的margin值
         measureChildWithMargins(view, 0, 0)
+
         val scale = if (mTotalOffset >= 0) {
             calculateHorizontalScale(firstScale, position, index)
         } else {
@@ -596,6 +636,7 @@ class StackCardLayoutManager : RecyclerView.LayoutManager {
             } else {
                 view.translationX = offset
             }
+            view.translationY = -topOffset
         }
     }
 
@@ -677,6 +718,18 @@ class StackCardLayoutManager : RecyclerView.LayoutManager {
      */
     private fun getVerticalFirstScale(): Float {
         return (mItemHeight - (stackConfig.stackCount - 1) * stackConfig.space) * 1f / mItemHeight
+    }
+
+    /**
+     * 获取垂直方向第一个item的缩放比
+     * @param firstScale 首个item的缩放比
+     */
+    private fun getVerticalItemOffset(firstScale: Float): Float {
+        return if (stackConfig.isAdjustSize) {
+            (mItemWidth - mItemWidth * firstScale) / 2
+        } else {
+            0f
+        }
     }
 
     /**
@@ -814,6 +867,18 @@ class StackCardLayoutManager : RecyclerView.LayoutManager {
      */
     private fun getHorizontalFirstScale(): Float {
         return (mItemWidth - (stackConfig.stackCount - 1) * stackConfig.space) * 1f / mItemWidth
+    }
+
+    /**
+     * 获取水平方向item的偏移量
+     * @param firstScale 首个item的缩放比
+     */
+    private fun getHorizontalItemOffset(firstScale: Float): Float {
+        return if (stackConfig.isAdjustSize) {
+            (mItemHeight - mItemHeight * firstScale) / 2
+        } else {
+            0f
+        }
     }
 
     /**
@@ -1014,6 +1079,27 @@ class StackCardLayoutManager : RecyclerView.LayoutManager {
         }
     }
 
+    /**
+     * 重设宽高
+     */
+    override fun setMeasuredDimension(widthSize: Int, heightSize: Int) {
+        if (stackConfig.isAdjustSize && mItemWidth > 0 && mItemHeight > 0) {
+            when (stackConfig.direction) {
+                StackDirection.LEFT, StackDirection.RIGHT -> {
+                    val height = mItemHeight * getHorizontalFirstScale()
+                    super.setMeasuredDimension(mItemWidth, height.toInt())
+
+                }
+                StackDirection.TOP, StackDirection.BOTTOM -> {
+                    val width = mItemWidth * getVerticalFirstScale()
+                    super.setMeasuredDimension(width.toInt(), mItemHeight)
+                }
+            }
+        } else {
+            super.setMeasuredDimension(widthSize, heightSize)
+        }
+    }
+
     override fun requestLayout() {
         super.requestLayout()
         initialFlag = false
@@ -1078,6 +1164,8 @@ class StackCardLayoutManager : RecyclerView.LayoutManager {
 
         @IntRange(from = 1000)
         var autoCycleTime = 3000 // 自动循环时间间隔，毫秒
+
+        var isAdjustSize = false // 是否重新校准调整RecyclerView宽高
 
         var direction: StackDirection = StackDirection.RIGHT // 方向
 

@@ -33,6 +33,7 @@ class MainActivity : AppCompatActivity() {
         horizontalConfig.space = dip2px(this, 24f)
         horizontalConfig.parallex = 1.5f
         horizontalConfig.isCycle = false
+        horizontalConfig.isAdjustSize = true
         horizontalConfig.direction = StackCardLayoutManager.StackDirection.BOTTOM
         firstListRv.layoutManager = StackCardLayoutManager(horizontalConfig)
         firstListRv.adapter = TestAdapter(this, tempList)
